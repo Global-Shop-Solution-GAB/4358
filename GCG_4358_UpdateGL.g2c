@@ -1,0 +1,124 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+
+'This project will update the customer's GL account based on criteria specified by the customer. This will run from a custom menu item.
+'Created by FEQ 2/1/2017 for Yakima Bait Company
+
+V.Local.sSql.Declare(String)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN, V.Ambient.PUser, V.Ambient.PPass)
+
+
+'We cant use the view on some of these. But the SQL from questionnaire was spot on. WE need to use Customer Master Rec = 1 when updating main shipments. 
+'Oe _Multi ship doesn't need a view cause it's written one rec.
+
+'5230.101  -Main Ship to State = WA 
+V.Local.sSql.Set("UPDATE CUSTOMER_MASTER SET CUSTOMER_MASTER.NORMAL_GL_ACCOUNT = '5230.101' FROM CUSTOMER_MASTER ")
+F.Intrinsic.String.Build("{0} JOIN V_CUSTOMER_SHIPTO ON CUSTOMER_MASTER.CUSTOMER = V_CUSTOMER_SHIPTO.CUSTOMER  ", V.Local.sSql, V.Local.sSql)
+F.Intrinsic.String.Build("{0} WHERE CUSTOMER_MASTER.REC ='1' AND V_CUSTOMER_SHIPTO.STATE_SHIP ='WA' ", V.Local.sSql, V.Local.sSql)
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+'5200.101 -Main Ship to Country = USA -Main Ship to State <> WA
+V.Local.sSql.Set("UPDATE CUSTOMER_MASTER SET CUSTOMER_MASTER.NORMAL_GL_ACCOUNT = '5200.101' FROM CUSTOMER_MASTER ")
+F.Intrinsic.String.Build("{0} JOIN V_CUSTOMER_SHIPTO ON  CUSTOMER_MASTER.CUSTOMER = V_CUSTOMER_SHIPTO.CUSTOMER ", V.Local.sSql, V.Local.sSql)
+F.Intrinsic.String.Build("{0} WHERE CUSTOMER_MASTER.REC ='1' AND V_CUSTOMER_SHIPTO.COUNTRY_SHIP = 'USA' AND V_CUSTOMER_SHIPTO.STATE_SHIP <> 'WA' AND V_CUSTOMER_SHIPTO.REC ='3'", V.Local.sSql, V.Local.sSql)
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+'5210.101 -Main Ship to Country = CAN
+V.Local.sSql.Set("UPDATE CUSTOMER_MASTER SET CUSTOMER_MASTER.NORMAL_GL_ACCOUNT = '5210.101' FROM CUSTOMER_MASTER ")
+F.Intrinsic.String.Build("{0} JOIN V_CUSTOMER_SHIPTO ON CUSTOMER_MASTER.CUSTOMER = V_CUSTOMER_SHIPTO.CUSTOMER ", V.Local.sSql, V.Local.sSql)
+F.Intrinsic.String.Build("{0} WHERE CUSTOMER_MASTER.REC = '1' and V_CUSTOMER_SHIPTO.COUNTRY_SHIP = 'CAN' AND V_CUSTOMER_SHIPTO.REC ='3'", V.Local.sSql, V.Local.sSql)
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+'5220.101 -Main Ship TO Country <> CAN 
+'THIS wasnt in the SQL but we need to put in where it's not equal to USA either. Otherwise all those we did for 5200.101 will just be blown away on this one. So they mustve missed it.
+V.Local.sSql.Set("Update CUSTOMER_MASTER SET CUSTOMER_MASTER.NORMAL_GL_ACCOUNT ='5220.101' FROM CUSTOMER_MASTER ")
+F.Intrinsic.String.Build("{0} JOIN V_CUSTOMER_SHIPTO ON CUSTOMER_MASTER.CUSTOMER = V_CUSTOMER_SHIPTO.CUSTOMER ", V.Local.sSql, V.Local.sSql)
+F.Intrinsic.String.Build("{0} WHERE V_CUSTOMER_SHIPTO.COUNTRY_SHIP <> 'CAN' AND V_CUSTOMER_SHIPTO.COUNTRY_SHIP <> 'USA' ", V.Local.sSql, V.Local.sSql)
+F.Intrinsic.String.Build("{0} AND CUSTOMER_MASTER.REC ='1' AND V_CUSTOMER_SHIPTO.REC ='3' ", V.Local.sSql, V.Local.sSql)
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+
+'ADDITIONAL SHIP TO RULES
+'5230.101 -Multi Ship State = WA
+V.Local.sSql.Set("UPDATE OE_MULTI_SHIP SET SHIP_GL_ACCT = '5230.101' WHERE SHIP_STATE = 'WA' ")
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+'5200.101 -Multi Ship Country = USA And Multi Ship State <> WA
+V.Local.sSql.Set("UPDATE OE_MULTI_SHIP SET SHIP_GL_ACCT = '5200.101' WHERE SHIP_STATE <> 'WA' AND SHIP_COUNTRY = 'USA' ")
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+'5210.101 -Multi Ship Country = CAN 
+V.Local.sSql.Set("UPDATE OE_MULTI_SHIP SET SHIP_GL_ACCT = '5210.101' WHERE SHIP_COUNTRY = 'CAN' ")
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+
+'5220.101 -Multi Ship Country <> CAN AND Multi Ship Country <> USA
+V.Local.sSql.Set("UPDATE OE_MULTI_SHIP SET SHIP_GL_ACCT = '5220.101' WHERE SHIP_COUNTRY <> 'CAN' and SHIP_COUNTRY <> 'USA' ")
+
+F.ODBC.Connection!con.Execute(V.Local.sSql)
+
+F.Intrinsic.UI.Msgbox("Mass General Ledger settings for default Normal GL accounts setup complete.", "Process complete")
+
+F.Intrinsic.Control.CallSub(unload)
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4358_UpdateGL.g2c",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4358_UpdateGL.g2c",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Unload.End
+
+Program.Sub.Comments.Start
+${$0$}$Update Customer/multi Ship Default GL sales account$}$Sisco$}$2/1/2017 8:15:00 AM$}$True
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This custom GAB script will update the customer's normal GL account based on specified criteria. The program will be ran from a custom menu item. 
+Program.Sub.Comments.End
